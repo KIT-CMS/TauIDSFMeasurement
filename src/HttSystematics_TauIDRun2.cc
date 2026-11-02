@@ -28,7 +28,7 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   // Signal processes
   if (embedding){
     //   std::vector<std::string> signals = {"EMB"};
-      std::vector<std::string> signals = {"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive" };
+      std::vector<std::string> signals = {"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM1011", "EMB_DM10", "EMB_DM11", "EMB_Inclusive", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"};
 
       mc_processes =
                   {"TTL", "TTJ", "W", "ZJ", "ZL", "VVL", "VVJ", "STL", "STJ"};
@@ -54,32 +54,32 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   float lumi_unc_corr = 1.0;
   float lumi_unc_1718 = 1.0;
   if (era_tag == "Run2016preVFP") {
-      lumi_unc = 1.010;
-      lumi_unc_corr = 1.006;
+      lumi_unc = 1.012;
+    //   lumi_unc_corr = 1.006;
   } else if (era_tag == "Run2016postVFP") {
-      lumi_unc = 1.010;
-      lumi_unc_corr = 1.006;
+      lumi_unc = 1.012;
+    //   lumi_unc_corr = 1.006;
   } else if (era_tag == "Run2017") {
-      lumi_unc = 1.020;
-      lumi_unc_corr = 1.009;
-      lumi_unc_1718 = 1.006;
+      lumi_unc = 1.0082;
+    //   lumi_unc_corr = 1.009;
+    //   lumi_unc_1718 = 1.006;
   } else if (era_tag == "Run2018") {
-      lumi_unc = 1.015;
-      lumi_unc_corr = 1.020;
-      lumi_unc_1718 = 1.002;
+      lumi_unc = 1.0084;
+    //   lumi_unc_corr = 1.020;
+    //   lumi_unc_1718 = 1.002;
   }
   cb.cp()
       .channel({"et", "mt", "tt", "em", "mm"})
       .process(mc_processes)
       .AddSyst(cb, "lumi_13TeV_$ERA", "lnN", SystMap<>::init(lumi_unc));
-  cb.cp()
-      .channel({"et", "mt", "tt", "em", "mm"})
-      .process(mc_processes)
-      .AddSyst(cb, "lumi_13TeV_correlated", "lnN", SystMap<>::init(lumi_unc_corr));
-  cb.cp()
-      .channel({"et", "mt", "tt", "em", "mm"})
-      .process(mc_processes)
-      .AddSyst(cb, "lumi_13TeV_1718", "lnN", SystMap<>::init(lumi_unc_1718));
+//   cb.cp()
+//       .channel({"et", "mt", "tt", "em", "mm"})
+//       .process(mc_processes)
+//       .AddSyst(cb, "lumi_13TeV_correlated", "lnN", SystMap<>::init(lumi_unc_corr));
+//   cb.cp()
+//       .channel({"et", "mt", "tt", "em", "mm"})
+//       .process(mc_processes)
+//       .AddSyst(cb, "lumi_13TeV_1718", "lnN", SystMap<>::init(lumi_unc_1718));
 
   // ##########################################################################
   // Uncertainty: Prefiring
@@ -107,13 +107,19 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
       .channel({"mt"})
       .process(mc_processes)
       .AddSyst(cb, "CMS_eff_m_trigger_$ERA", "shape", SystMap<>::init(1.00));
+    // .AddSyst(cb, "CMS_eff_m_trigger_$ERA", "lnN", SystMap<>::init(1.02));
 
+  // Custom shape systematic: +-10% on the nominal yield of signal(emb) or 1% on TES, etc. .
+//   cb.cp()
+//       .channel({"mt"})
+//       .process({"EMB_DM0" , "EMB_DM1", "EMB_DM1011", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
+//       .AddSyst(cb, "Custom_simple_shift", "shape", SystMap<>::init(1.00));
   // 100% uncorrelated for embedded
   cb.cp()
       .channel({"mt", "mm"})
     //   .process({"EMB", "MUEMB"})
     //   .process({"EMB", "MUEMB"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
     //   .AddSyst(cb, "CMS_eff_trigger_emb_mt_$ERA", "shape", SystMap<>::init(1.00));
     .AddSyst(cb, "CMS_eff_m_trigger_emb_$ERA", "lnN", SystMap<>::init(1.02));
 
@@ -121,12 +127,12 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   //  Muon ID 
   cb.cp()
       .channel({"mt"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
       .AddSyst(cb, "CMS_eff_m_id_emb", "lnN", SystMap<>::init(1.02));
 
   cb.cp()
       .channel({"mm"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
       .AddSyst(cb, "CMS_eff_m_id_emb", "lnN", SystMap<>::init(1.04));
   cb.cp()
       .channel({"mt"})
@@ -140,12 +146,12 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   //  Muon Iso
   cb.cp()
       .channel({"mt"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
       .AddSyst(cb, "CMS_eff_m_iso_emb", "lnN", SystMap<>::init(1.02));
 
   cb.cp()
       .channel({"mm"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0", "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
       .AddSyst(cb, "CMS_eff_m_iso_emb", "lnN", SystMap<>::init(1.04));
   cb.cp()
       .channel({"mt"})
@@ -155,13 +161,6 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
       .channel({"mm"})
       .process(mc_processes)
       .AddSyst(cb, "CMS_eff_m_iso", "lnN", SystMap<>::init(1.04));
-
-
-// cb.cp()
-//     .channel({"mt"})
-//     .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
-//     .AddSyst(cb, "CMS_eff_m_emb", "lnN", SystMap<>::init(0.98));
-
 
 
   // ##########################################################################
@@ -191,6 +190,9 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
 
   // TauID first
   std::string tauIDptbins[5] = {"30-35", "35-40", "40-500", "500-1000", "1000-Inf"};
+  std::string tauIDdmbins[4] = {"dm0", "dm1", "dm10", "dm11"};
+//   std::string tauIDdmptbins[12] = {"dm0", "dm1", "dm10", "dm11", "dm0_20-40", "dm1_20-40", "dm10_20-40", "dm11_20-40", "dm0_40-200", "dm1_40-200", "dm10_40-200", "dm11_40-200"};
+
   // 3% in Tau ID SF with different anti-l fake WP
   cb.cp()
       .channel({"mt"})
@@ -199,7 +201,7 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   
   // Tau ID: et and mt with 1 real tau
       
-  for (auto tauIDbin : tauIDptbins){ //first part correlated between channels for IDvsJets
+  for (auto tauIDbin : tauIDdmbins){ //first part correlated between channels for IDvsJets
     cb.cp()
         .channel({"mt"})
         .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
@@ -212,22 +214,22 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
       .channel({"mt"})
       .process({{"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"}})
       // .process({{"ZTT", "TTT", "TTL", "VVT", "VVL", "jetFakes", "QCD"}}) // TODO: Check if this should be propagated to QCD
-      .AddSyst(cb, "CMS_scale_t_1prong_$ERA", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_scale_t_dm0_$ERA", "shape", SystMap<>::init(1.00));
 
   cb.cp()
       .channel({"mt"})
       .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_1prong1pizero_$ERA", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_scale_t_dm1_$ERA", "shape", SystMap<>::init(1.00));
 
   cb.cp()
       .channel({"mt"})
       .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_3prong_$ERA", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_scale_t_dm10_$ERA", "shape", SystMap<>::init(1.00));
 
   cb.cp()
       .channel({"mt"})
       .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_3prong1pizero_$ERA", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_scale_t_dm11_$ERA", "shape", SystMap<>::init(1.00));
 
 //   // Embedded uncorrelated uncertainty
 // // TODO check EMB ES
@@ -293,66 +295,113 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
 
   // Regional JES
     // uncorrelated between eras
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_Absolute_$ERA", "shape", SystMap<>::init(1.00));
+    // Old syst. pre v15:
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_Absolute_$ERA", "shape", SystMap<>::init(1.00));
 
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_BBEC1_$ERA", "shape", SystMap<>::init(1.00));
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_BBEC1_$ERA", "shape", SystMap<>::init(1.00));
 
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_EC2_$ERA", "shape", SystMap<>::init(1.00));
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_EC2_$ERA", "shape", SystMap<>::init(1.00));
 
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_HF_$ERA", "shape", SystMap<>::init(1.00));
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_HF_$ERA", "shape", SystMap<>::init(1.00));
 
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_RelativeSample_$ERA", "shape", SystMap<>::init(1.00));
-    // correlated between eras
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_Absolute", "shape", SystMap<>::init(1.00));
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_RelativeSample_$ERA", "shape", SystMap<>::init(1.00));
+    // // correlated between eras
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_Absolute", "shape", SystMap<>::init(1.00));
 
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_BBEC1", "shape", SystMap<>::init(1.00));
+
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_EC2", "shape", SystMap<>::init(1.00));
+
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_HF", "shape", SystMap<>::init(1.00));
+
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_FlavorQCD", "shape", SystMap<>::init(1.00));
+
+    // cb.cp()
+    //     .channel({"et", "mt", "tt", "em"})
+    //     .process(mc_processes)
+    //     .AddSyst(cb, "CMS_scale_j_RelativeBal", "shape", SystMap<>::init(1.00));
+
+
+    // New v15:
+    std::vector<std::string> scale_j_systematics = {
+        "CMS_scale_j_Total",
+        "CMS_scale_j_SinglePionECAL",
+        "CMS_scale_j_SinglePionHCAL",
+        "CMS_scale_j_AbsoluteMPFBias",
+        "CMS_scale_j_AbsoluteScale",
+        "CMS_scale_j_Fragmentation",
+        "CMS_scale_j_PileUpDataMC",
+        "CMS_scale_j_RelativeFSR",
+        "CMS_scale_j_PileupPtRef",
+        "CMS_scale_j_AbsoluteStat",
+        "CMS_scale_j_TimePtEta",
+        "CMS_scale_j_RelativeStatFSR",
+        "CMS_scale_j_FlavorQCD",
+        "CMS_scale_j_PileupPtEC1",
+        "CMS_scale_j_PileUpPtBB",
+        "CMS_scale_j_RelativePtBB",
+        "CMS_scale_j_RelativeJEREC1",
+        "CMS_scale_j_RelativePtEC1",
+        "CMS_scale_j_RelativeStatEC",
+        "CMS_scale_j_RelativePtHF",
+        "CMS_scale_j_PileUpPtHF",
+        "CMS_scale_j_RelativeJERHF",
+        "CMS_scale_j_RelativeStatHF",
+        "CMS_scale_j_PileUpPtEC2",
+        "CMS_scale_j_RelativeJEREC2",
+        "CMS_scale_j_RelativePtEC2",
+        "CMS_scale_j_RelativeBal",
+        "CMS_scale_j_RelativeSample"
+    };
+    for (const auto& syst : scale_j_systematics) {
+        cb.cp()
+            .channel({"et", "mt", "tt", "em"})
+            .process(mc_processes)
+            .AddSyst(cb, syst, "shape", SystMap<>::init(1.00));
+    }
+
+  // JER (not used from v15 on ?)
+//   cb.cp()
+//       .channel({"et", "mt", "tt", "em"})
+//       .process(mc_processes)
+//       .AddSyst(cb, "CMS_res_j_$ERA", "shape", SystMap<>::init(1.00));
+  // HEM issue 
+  if (era_tag == "Run2018") {
     cb.cp()
         .channel({"et", "mt", "tt", "em"})
         .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_BBEC1", "shape", SystMap<>::init(1.00));
-
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_EC2", "shape", SystMap<>::init(1.00));
-
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_HF", "shape", SystMap<>::init(1.00));
-
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_FlavorQCD", "shape", SystMap<>::init(1.00));
-
-    cb.cp()
-        .channel({"et", "mt", "tt", "em"})
-        .process(mc_processes)
-        .AddSyst(cb, "CMS_scale_j_RelativeBal", "shape", SystMap<>::init(1.00));
-
-  // JER
-  cb.cp()
-      .channel({"et", "mt", "tt", "em"})
-      .process(mc_processes)
-      .AddSyst(cb, "CMS_res_j_$ERA", "shape", SystMap<>::init(1.00));
+        .AddSyst(cb, "CMS_scale_j_HEMIssue_$ERA", "shape", SystMap<>::init(1.00));
+  }
 
   // ##########################################################################
   // Uncertainty: MET energy scale and Recoil
@@ -456,7 +505,7 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   cb.cp()
       .channel({"mt"})
       .process({"TTT", "TTL", "TTJ", "TT"})
-      .AddSyst(cb, "CMS_top_pt_reweighting", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_htt_ttbarShape", "shape", SystMap<>::init(1.00));
 
   // ##########################################################################
   // Uncertainty: Electron/muon to tau fakes and ZL energy scale
@@ -510,7 +559,7 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   cb.cp()
       .channel({"mt"})
       .process({"W", "TTJ", "ZJ", "VVJ"})
-      .AddSyst(cb, "CMS_htt_fake_j_$ERA", "shape", SystMap<>::init(1.00));
+      .AddSyst(cb, "CMS_fake_j_$ERA", "shape", SystMap<>::init(1.00));
 
   // ##########################################################################
   // Uncertainty: Embedded events
@@ -523,14 +572,14 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   cb.cp()
       .channel({"mt", "mm"})
     //   .process({"EMB", "MUEMB"})
-      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+      .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
       .AddSyst(cb, "CMS_eff_m_emb_selection_trigger_$ERA", "lnN", SystMap<>::init(1.04));
 
   // TTbar contamination in embedded events: 10% shape uncertainty of assumed ttbar->tautau event shape  // this should be included to input ntuples
   cb.cp()
     .channel({"mt"})
     // .process({"EMB"})
-    .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM10_11", "EMB_Inclusive", "MUEMB"})
+    .process({"EMB_Pt20to25", "EMB_Pt25to30", "EMB_Pt30to35", "EMB_Pt35to40", "EMB_PtGt40", "EMB_DM0" , "EMB_DM1", "EMB_DM1011", "EMB_Inclusive", "MUEMB", "EMB_DM0_PT20_40" , "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40", "EMB_DM0_PT40_200" , "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200"})
     .AddSyst(cb, "CMS_emb_ttbar_contamination_$ERA", "shape", SystMap<>::init(1.00));
 
 //   cb.cp()

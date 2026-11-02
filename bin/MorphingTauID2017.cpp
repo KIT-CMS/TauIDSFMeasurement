@@ -8,7 +8,7 @@
 #include "CombineHarvester/CombineTools/interface/Process.h"
 #include "CombineHarvester/CombineTools/interface/Systematics.h"
 #include "CombineHarvester/CombineTools/interface/Utilities.h"
-#include "CombineHarvester/SMRun2Legacy/interface/BinomialBinByBin.h"
+#include "CombineHarvester/TauIDSFMeasurement/interface/BinomialBinByBin.h"
 #include "CombineHarvester/TauIDSFMeasurement/interface/HttSystematics_TauIDRun2.h"
 #include "CombineHarvester/CombinePdfs/interface/CMSHistFuncFactory.h"
 #include "RooRealVar.h"
@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 #include <iomanip> // Add this header for std::setprecision
-
+#include <fstream>
 using namespace std;
 using boost::starts_with;
 namespace po = boost::program_options;
@@ -59,6 +59,9 @@ int main(int argc, char **argv) {
   bool verbose = false;
   string categories = "pt_binned"; // "pt_binned", "ptdm_binned"
   string era = "2018";                  // 2016 or 2017
+  float tes_precision = 0.1; // in percent, used for the step size of the TES variations
+  float es_max = 8.0;
+  float es_min = -8.0;
   po::variables_map vm;
   po::options_description config("configuration");
   config.add_options()("base_path",
@@ -87,7 +90,10 @@ int main(int argc, char **argv) {
       po::value<bool>(&binomial_bbb)->default_value(binomial_bbb))(
       "use_control_region",
       po::value<bool>(&use_control_region)->default_value(use_control_region))(
-      "era", po::value<string>(&era)->default_value(era));
+      "era", po::value<string>(&era)->default_value(era))(
+      "tes_precision", po::value<float>(&tes_precision)->default_value(tes_precision))(
+      "es_max", po::value<float>(&es_max)->default_value(es_max))(
+      "es_min", po::value<float>(&es_min)->default_value(es_min));
   po::store(po::command_line_parser(argc, argv).options(config).run(), vm);
   po::notify(vm);
 
@@ -139,8 +145,9 @@ int main(int argc, char **argv) {
   bkg_procs["mt"] = bkgs;
   bkg_procs["mm"] = bkgs_mm;
 
+
   vector<string> es_shifts;
-  for (float i = -4.0; i <= 4.0; i += 0.1) {
+  for (float i = es_min; i <= es_max; i += tes_precision) {
     if (i > -0.005 && i < 0.005) continue; // skip 0.0
     // there seems to be no easier way for C++11 to do this conversion to strings
     std::ostringstream stream;
@@ -148,25 +155,73 @@ int main(int argc, char **argv) {
     es_shifts.push_back(stream.str());
   }
   
+  std::cout << "[DEBUG] categories variable: " << categories << std::endl;
   TString es_var_name("");
   if (categories == "DM0") {
     es_var_name = "ES_DM0";
   } else if (categories == "DM1"){
      es_var_name = "ES_DM1";
-  } else if (categories == "DM10_11"){
-      es_var_name = "ES_DM10_11";
-
+  } else if (categories == "DM10"){
+    es_var_name = "ES_DM10";
+  } else if (categories == "DM11"){
+    es_var_name = "ES_DM11";
+  } else if (categories == "DM1011"){
+      es_var_name = "ES_DM1011";
+  } else if (categories == "DM0_PT20_40"){
+    es_var_name = "ES_DM0_PT20_40";
+  } else if (categories == "DM1_PT20_40"){
+      es_var_name = "ES_DM1_PT20_40";
+  } else if (categories == "DM10_PT20_40"){
+    es_var_name = "ES_DM10_PT20_40";
+  } else if (categories == "DM11_PT20_40"){
+    es_var_name = "ES_DM11_PT20_40";
+  } else if (categories == "DM1011_PT20_40"){
+    es_var_name = "ES_DM1011_PT20_40";
+  } else if (categories == "DM0_PT40_200"){
+    es_var_name = "ES_DM0_PT40_200";
+  } else if (categories == "DM1_PT40_200"){
+      es_var_name = "ES_DM1_PT40_200";
+  } else if (categories == "DM10_PT40_200"){
+    es_var_name = "ES_DM10_PT40_200";
+  } else if (categories == "DM11_PT40_200"){
+    es_var_name = "ES_DM11_PT40_200";
+  } else if (categories == "DM1011_PT40_200"){
+    es_var_name = "ES_DM1011_PT40_200";
   } else{
     throw std::runtime_error("Given categorization is not known.");
   }
 
   // Define MSSM model-independent mass parameter MH
-  RooRealVar ES_DM0(es_var_name, es_var_name, 0.1, -4.0, 4.0);
-  ES_DM0.setConstant(true);
-  RooRealVar ES_DM1(es_var_name, es_var_name, 0.1, -4.0, 4.0);
-  ES_DM1.setConstant(true);
-  RooRealVar ES_DM10_11(es_var_name, es_var_name, 0.1, -4.0, 4.0);
-  ES_DM10_11.setConstant(true);
+  RooRealVar ES_DM0(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM0.setConstant(true);
+  RooRealVar ES_DM1(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1.setConstant(true);
+  RooRealVar ES_DM10(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM10.setConstant(true);
+  RooRealVar ES_DM11(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM11.setConstant(true);
+  RooRealVar ES_DM1011(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1011.setConstant(true);
+  RooRealVar ES_DM0_PT20_40(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM0_PT20_40.setConstant(true);
+  RooRealVar ES_DM1_PT20_40(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1_PT20_40.setConstant(true);
+  RooRealVar ES_DM10_PT20_40(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM10_PT20_40.setConstant(true);
+  RooRealVar ES_DM11_PT20_40(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM11_PT20_40.setConstant(true);
+  RooRealVar ES_DM1011_PT20_40(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1011_PT20_40.setConstant(true);
+  RooRealVar ES_DM0_PT40_200(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM0_PT40_200.setConstant(true);
+  RooRealVar ES_DM1_PT40_200(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1_PT40_200.setConstant(true);
+  RooRealVar ES_DM10_PT40_200(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM10_PT40_200.setConstant(true);
+  RooRealVar ES_DM11_PT40_200(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM11_PT40_200.setConstant(true);
+  RooRealVar ES_DM1011_PT40_200(es_var_name, es_var_name, tes_precision, es_min, es_max);
+  // ES_DM1011_PT40_200.setConstant(true);
 
   // std::cout << "Successfully executed" << std::endl;
   map<string, Categories> cats;
@@ -175,9 +230,13 @@ int main(int argc, char **argv) {
   vector<string> mm_sig_procs;
   if (categories == "all") {
     cats["mt"] = {
-         {1, "mt_Pt20to25"}, {2, "mt_Pt25to30"}, {3, "mt_Pt30to35"},
-         {4, "mt_Pt35to40"}, {5, "mt_PtGt40"},   {6, "mt_Inclusive"},
-         {7, "mt_DM0"},      {8, "mt_DM1"},      {9, "mt_DM10_11"},
+         {1, "mt_Pt20to25"},        {2, "mt_Pt25to30"},       {3, "mt_Pt30to35"},
+         {4, "mt_Pt35to40"},        {5, "mt_PtGt40"},         {6, "mt_Inclusive"},
+         {7, "mt_DM0"},             {8, "mt_DM1"},            {9, "mt_DM1011"},
+         {10, "mt_DM10"},           {11, "mt_DM11"},          {12, "mt_DM0_PT20_40"},
+         {13, "mt_DM1_PT20_40"},    {14, "mt_DM1011_PT20_40"},{15, "mt_DM10_PT20_40"},
+         {16, "mt_DM11_PT20_40"},   {17, "mt_DM0_PT40_200"},  {18, "mt_DM1_PT40_200"},
+         {19, "mt_DM1011_PT40_200"},{20, "mt_DM10_PT40_200"}, {21, "mt_DM11_PT40_200"},
     }; // sig_procs here?
   } else if (categories == "Pt20to25"){
     cats["mt"] = {
@@ -219,11 +278,71 @@ int main(int argc, char **argv) {
       {8, "mt_DM1"}
     };
     sig_procs = {"EMB_DM1"};
-  } else if (categories == "DM10_11"){
+  } else if (categories == "DM1011"){
     cats["mt"] = {
-      {9, "mt_DM10_11"}
+      {9, "mt_DM1011"}
     };
-    sig_procs = {"EMB_DM10_11"};
+    sig_procs = {"EMB_DM1011"};
+  } else if (categories == "DM10"){
+    cats["mt"] = {
+      {10, "mt_DM10"}
+    };
+    sig_procs = {"EMB_DM10"};
+  } else if (categories == "DM11"){
+    cats["mt"] = {
+      {11, "mt_DM11"}
+    };
+    sig_procs = {"EMB_DM11"};
+  } else if (categories == "DM0_PT20_40"){
+    cats["mt"] = {
+      {12, "mt_DM0_PT20_40"}
+    };
+    sig_procs = {"EMB_DM0_PT20_40"};
+  } else if (categories == "DM1_PT20_40"){
+    cats["mt"] = {
+      {13, "mt_DM1_PT20_40"}
+    };
+    sig_procs = {"EMB_DM1_PT20_40"};
+  } else if (categories == "DM1011_PT20_40"){
+    cats["mt"] = {
+      {14, "mt_DM1011_PT20_40"}
+    };
+    sig_procs = {"EMB_DM1011_PT20_40"};
+  } else if (categories == "DM10_PT20_40"){
+    cats["mt"] = {
+      {15, "mt_DM10_PT20_40"}
+    };
+    sig_procs = {"EMB_DM10_PT20_40"};
+  } else if (categories == "DM11_PT20_40"){
+    cats["mt"] = {
+      {16, "mt_DM11_PT20_40"}
+    };
+    sig_procs = {"EMB_DM11_PT20_40"};
+  } else if (categories == "DM0_PT40_200"){
+    cats["mt"] = {
+      {17, "mt_DM0_PT40_200"}
+    };
+    sig_procs = {"EMB_DM0_PT40_200"};
+  } else if (categories == "DM1_PT40_200"){
+    cats["mt"] = {
+      {18, "mt_DM1_PT40_200"}
+    };
+    sig_procs = {"EMB_DM1_PT40_200"};
+  } else if (categories == "DM1011_PT40_200"){
+    cats["mt"] = {
+      {19, "mt_DM1011_PT40_200"}
+    };
+    sig_procs = {"EMB_DM1011_PT40_200"};
+  } else if (categories == "DM10_PT40_200"){
+    cats["mt"] = {
+      {20, "mt_DM10_PT40_200"}
+    };
+    sig_procs = {"EMB_DM10_PT40_200"};
+  } else if (categories == "DM11_PT40_200"){
+    cats["mt"] = {
+      {21, "mt_DM11_PT40_200"}
+    };
+    sig_procs = {"EMB_DM11_PT40_200"};
   } else {
     throw std::runtime_error("Given categorization is not known.");
   }
@@ -259,11 +378,16 @@ int main(int argc, char **argv) {
 
   // Extract shapes from input ROOT files
   for (string chn : chns) {
+    if (chn == "mm") {
     cb.cp().channel({chn}).backgrounds().ExtractShapes(
         input_dir[chn] + "htt_" + chn + ".inputs-sm-" + era_tag + postfix +
             ".root",
         "$BIN/$PROCESS", "$BIN/$PROCESS_$SYSTEMATIC");
-    if (chn == "mt") {
+    } else if (chn == "mt") {
+      cb.cp().channel({chn}).backgrounds().ExtractShapes(
+        input_dir[chn] + "htt_" + chn + ".inputs-sm-" + era_tag + postfix +
+            ".root",
+        "$BIN/$PROCESS", "$BIN/$PROCESS_$SYSTEMATIC");
       cb.cp()
       .channel({chn})
       // .bin_id({static_cast<int>(i)})
@@ -512,13 +636,37 @@ int main(int argc, char **argv) {
   std::map<std::string, std::string> process_norm_map = {
     {"EMB_DM0", "norm"},
     {"EMB_DM1", "norm"},
-    {"EMB_DM10_11", "norm"}
+    {"EMB_DM1011", "norm"},
+    {"EMB_DM10", "norm"},
+    {"EMB_DM11", "norm"},
+    {"EMB_DM0_PT20_40", "norm"},
+    {"EMB_DM1_PT20_40", "norm"},
+    {"EMB_DM1011_PT20_40", "norm"},
+    {"EMB_DM10_PT20_40", "norm"},
+    {"EMB_DM11_PT20_40", "norm"},
+    {"EMB_DM0_PT40_200", "norm"},
+    {"EMB_DM1_PT40_200", "norm"},
+    {"EMB_DM1011_PT40_200", "norm"},
+    {"EMB_DM10_PT40_200", "norm"},
+    {"EMB_DM11_PT40_200", "norm"}
   };
 
   std::map<std::string, RooAbsReal *> mass_var  = {
     {"EMB_DM0", &ES_DM0},
     {"EMB_DM1", &ES_DM1},
-    {"EMB_DM10_11", &ES_DM10_11}
+    {"EMB_DM1011", &ES_DM1011},
+    {"EMB_DM10", &ES_DM10},
+    {"EMB_DM11", &ES_DM11},
+    {"EMB_DM0_PT20_40", &ES_DM0_PT20_40},
+    {"EMB_DM1_PT20_40", &ES_DM1_PT20_40},
+    {"EMB_DM1011_PT20_40", &ES_DM1011_PT20_40},
+    {"EMB_DM10_PT20_40", &ES_DM10_PT20_40},
+    {"EMB_DM11_PT20_40", &ES_DM11_PT20_40},
+    {"EMB_DM0_PT40_200", &ES_DM0_PT40_200},
+    {"EMB_DM1_PT40_200", &ES_DM1_PT40_200},
+    {"EMB_DM1011_PT40_200", &ES_DM1011_PT40_200},
+    {"EMB_DM10_PT40_200", &ES_DM10_PT40_200},
+    {"EMB_DM11_PT40_200", &ES_DM11_PT40_200}
   };
 
   // Setup morphed mssm signals for bsm analyses
@@ -528,8 +676,32 @@ int main(int argc, char **argv) {
     ws.import(ES_DM0);
   } else if (categories == "DM1"){
     ws.import(ES_DM1);
-  } else if (categories == "DM10_11"){
-    ws.import(ES_DM10_11);
+  } else if (categories == "DM1011"){
+    ws.import(ES_DM1011);
+  } else if (categories == "DM10"){
+    ws.import(ES_DM10);
+  } else if (categories == "DM11"){
+    ws.import(ES_DM11);
+  } else if (categories == "DM0_PT20_40"){
+    ws.import(ES_DM0_PT20_40);
+  } else if (categories == "DM1_PT20_40"){
+    ws.import(ES_DM1_PT20_40);
+  } else if (categories == "DM1011_PT20_40"){
+    ws.import(ES_DM1011_PT20_40);
+  } else if (categories == "DM10_PT20_40"){
+    ws.import(ES_DM10_PT20_40);
+  } else if (categories == "DM11_PT20_40"){
+    ws.import(ES_DM11_PT20_40);
+  } else if (categories == "DM0_PT40_200"){
+    ws.import(ES_DM0_PT40_200);
+  } else if (categories == "DM1_PT40_200"){
+    ws.import(ES_DM1_PT40_200);
+  } else if (categories == "DM1011_PT40_200"){
+    ws.import(ES_DM1011_PT40_200);
+  } else if (categories == "DM10_PT40_200"){
+    ws.import(ES_DM10_PT40_200);
+  } else if (categories == "DM11_PT40_200"){
+    ws.import(ES_DM11_PT40_200);
   } else{
     throw std::runtime_error("Given categorization is not known.");
   }
@@ -594,7 +766,19 @@ int main(int argc, char **argv) {
   }
 
   // if (verbose)
-  cb.PrintAll();
+  // Redirect cb.PrintAll() output to a log file with a specified location.
+  // You can modify the logfile_path variable to change the location.
+  std::string logfile_path = "/work/jvoss/ntuples/smhtt_ul_SFs_v15/log/cb_PrintAll.log";
+  std::ofstream logfile(logfile_path);
+  if (logfile.is_open()) {
+    std::streambuf* orig_buf = std::cout.rdbuf();
+    std::cout.rdbuf(logfile.rdbuf());
+    cb.PrintAll();
+    std::cout.rdbuf(orig_buf);
+    std::cout << "[INFO] cb.PrintAll() written to " << logfile_path << "\n";
+  } else {
+    std::cerr << "[ERROR] Could not open log file for writing: " << logfile_path << "\n";
+  }
 
   cout << "[INFO] Done producing datacards.\n";
 }
