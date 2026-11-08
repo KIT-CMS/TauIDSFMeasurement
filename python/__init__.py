@@ -44,7 +44,7 @@ EMB_PROCESSES = [
     "EMB_DM0_PT20_40", "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40",
     "EMB_DM0_PT40_200", "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200",
 ]
-LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0} # TODO: Update Run2024 lumi when known
+LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0161} # Run3 source: https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3#2024
 JES_SOURCES = [
     "Total", "SinglePionECAL", "SinglePionHCAL", "AbsoluteMPFBias", "AbsoluteScale",
     "Fragmentation", "PileUpDataMC", "RelativeFSR", "PileupPtRef", "AbsoluteStat",
@@ -84,11 +84,11 @@ def add_systematics(cb, era_tag, embedding):
 
     # Muon trigger/ID/iso: separate for MC and embedding, 4% in mm (two muons).
     add(["mt"], mc, "CMS_eff_m_trigger_$ERA", "shape", 1.0)
-    # TODO: For Run3 the muon trigger ID/ISO/trigger uncertainties are derived from the SF measurement itself and is not a fiexed 4% uncertainty.
+    # For Run3 the muon trigger ID/ISO/trigger uncertainties are derived from the SF measurement itself and is not a fiexed 4% uncertainty.
     if run3:
         for name in ["id", "iso"]:
-            add(["mt", "mm"], EMB_PROCESSES, f"CMS_eff_m_{name}_emb_$ERA", "shape", 1.0) #TODO
-            add(["mt", "mm"], mc, f"CMS_eff_m_{name}_$ERA", "shape", 1.0)                #TODO
+            add(["mt", "mm"], EMB_PROCESSES, f"CMS_eff_m_{name}_emb_$ERA", "shape", 1.0)
+            add(["mt", "mm"], mc, f"CMS_eff_m_{name}_$ERA", "shape", 1.0)
         add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_trigger_emb_$ERA", "shape", 1.0)
     else:
         add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_trigger_emb_$ERA", "lnN", 1.02)
@@ -141,7 +141,7 @@ def add_systematics(cb, era_tag, embedding):
     ## Embedding-specific uncertainties:
     # Embedding selection trigger efficiency
     if run3:
-        add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "shape", 1.0) #TODO: Those come from the SF measurement itself
+        add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "shape", 1.0) # For Run3 those come from the SF measurement itself
     else:
         add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "lnN", 1.04)
     # estimate the contamination of ttbar events in the embedded sample. 10% shape uncertainty of assumed ttbar->tautau event shape  // this should be included to input ntuples
