@@ -17,7 +17,7 @@ ID scale factor is the signal normalisation.  An optional mu-mu control region
 """
 
 import os
-from math import sqrt
+from math import fmod, sqrt
 
 import cppyy
 import ROOT
@@ -27,7 +27,7 @@ from CombineHarvester.CombineTools import ch
 cppyy.load_reflection_info("libCombineHarvesterCombinePdfs")  # for CMSHistFuncFactory
 
 ERA_TAGS = {"2016preVFP": "Run2016preVFP", "2016postVFP": "Run2016postVFP",
-            "2017": "Run2017", "2018": "Run2018"}
+            "2017": "Run2017", "2018": "Run2018", "2024": "Run2024"}
 
 # Category name -> bin id (ids as in the C++ code).  The C++ also listed "all",
 # "Pt*" and "Inclusive", but they crashed there, so they are left out.
@@ -44,8 +44,7 @@ EMB_PROCESSES = [
     "EMB_DM0_PT20_40", "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40",
     "EMB_DM0_PT40_200", "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200",
 ]
-MC_REAL_TAU = ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"]  # simulated genuine (or lepton) tau_h
-LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084}
+LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0} # TODO: Update Run2024 lumi when known
 JES_SOURCES = [
     "Total", "SinglePionECAL", "SinglePionHCAL", "AbsoluteMPFBias", "AbsoluteScale",
     "Fragmentation", "PileUpDataMC", "RelativeFSR", "PileupPtRef", "AbsoluteStat",
@@ -69,10 +68,10 @@ def add_systematics(cb, era_tag, embedding):
     def add(channels, procs, name, kind, value):
         cb.cp().channel(channels).process(procs).AddSyst(cb, name, kind, ch.SystMap()(float(value)))
 
+    # set a flag if this is a Run3 era
+    run3 = era_tag in ["Run2024"]  
+    
     if embedding:  # genuine taus come from the embedded sample, not from MC
-    #     ["W", "QCD", "ZL", "ZJ", "TTT", "TTL", "TTJ", "STT", "STL", "STJ", "VVJ", "VVT", "VVL"]
-    # if embedding:  # genuine taus are in the embedded sample, so remove them from the MC backgrounds
-    #     mt_bkgs = [p for p in mt_bkgs if p not in ["TTT", "STT", "VVT"]]
         mc = ["TTL", "TTJ", "W", "ZJ", "ZL", "VVL", "VVJ", "STL", "STJ"]
     else:
         mc = ["ZTT", "TTT", "TTL", "TTJ", "W", "ZJ", "ZL", "VVT", "VVL", "VVJ", "STT", "STL", "STJ"]
@@ -99,11 +98,10 @@ def add_systematics(cb, era_tag, embedding):
             add(["mt"], mc, "CMS_eff_m_" + name, "lnN", 1.02)
             add(["mm"], mc, "CMS_eff_m_" + name, "lnN", 1.04)
 
-    # 3% in Tau ID SF with different anti-l fake WP
     # Tau ID and ES of simulation. The embedded signal's ID and ES are what we measure, so they get no nuisance here.
     for dm in ["dm0", "dm1", "dm10", "dm11"]:
-        add(["mt"], MC_REAL_TAU, f"CMS_eff_t_{dm}_$ERA", "shape", 1.0)
-        add(["mt"], MC_REAL_TAU, f"CMS_scale_t_{dm}_$ERA", "shape", 1.0)
+        add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_eff_t_{dm}_$ERA", "shape", 1.0)
+        add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_scale_t_{dm}_$ERA", "shape", 1.0)
 
     for source in JES_SOURCES:
         add(["mt"], mc, "CMS_scale_j_" + source, "shape", 1.0)
@@ -204,22 +202,24 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
         path = os.path.join(base_path, folder, f"htt_{chn}.inputs-sm-{era_tag}{postfix}.root")
         cb.cp().channel([chn]).backgrounds().ExtractShapes(path, "$BIN/$PROCESS", "$BIN/$PROCESS_$SYSTEMATIC")
         if chn == "mt":
-            cb.cp().channel([chn]).signals().ExtractShapes(
-                path, "$BIN/$PROCESS_$MASS", "$BIN/$PROCESS_$MASS_$SYSTEMATIC")
+            cb.cp().channel([chn]).signals().ExtractShapes(path, "$BIN/$PROCESS_$MASS", "$BIN/$PROCESS_$MASS_$SYSTEMATIC")
 
     # --- 4. template treatment -----------------------------------------------
     # Empty processes/templates make combine fail: drop them (and their systematics).
     empty = set()
     cb.ForEachProc(lambda p: empty.add((p.bin(), p.process(), p.mass())) if not p.rate() > 0 else None)
+    print(f"[INFO] Dropping {len(empty)} empty processes/templates: {empty}")
     cb.FilterProcs(lambda p: (p.bin(), p.process(), p.mass()) in empty)
     cb.FilterSysts(lambda s: (s.bin(), s.process(), s.mass()) in empty
-                   or (s.type() == "shape" and (s.shape_u().Integral() == 0 or s.shape_d().Integral() == 0)))
+                   or (s.type() == "shape" and (s.shape_u().Integral() == 0 or s.shape_d().Integral() == 0))) # Delete systematics with 0 yield since these result in a bogus norm error in combine
 
+    # Replacing observation with the sum of the backgrounds (Asimov data) useful to be able to check this, so don't do the replacement for these
     if not real_data:
-        # Asimov data = sum of all templates.  As in the C++, this includes ALL
+        # Asimov data = sum of all templates. This includes ALL
         # ES-shifted signal templates, so it is far too large; for a proper Asimov
         # fit use real_data=True and combine's "-t -1".
         for b in cb.bin_set():
+            print(f"[INFO] Replacing observation in {b} with sum of all MC shapes (Asimov data)")
             total = cb.cp().bin([b]).backgrounds().GetShape()
             total.Add(cb.cp().bin([b]).signals().GetShape())
             cb.cp().bin([b]).ForEachObs(lambda obs: obs.set_shape(total, True))
@@ -232,12 +232,15 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
         s.set_value_d(value_d)
 
     def zero_negative(p):  # negative bins from negative MC weights
+        """Set negative bins in the shape to zero."""
+        
         if cppyy.gbl.ch.HasNegativeBins(p.shape()):
             h = p.ClonedShape()
             cppyy.gbl.ch.ZeroNegativeBins(h.get())
             p.set_shape(h, False)
 
     def zero_negative_syst(s):
+        """Set negative bins in the up and down shapes of a the systematic uncertainties to zero."""
         if "shape" in s.type() and (cppyy.gbl.ch.HasNegativeBins(s.shape_u())
                                     or cppyy.gbl.ch.HasNegativeBins(s.shape_d())):
             h_u, h_d = s.ClonedShapeU(), s.ClonedShapeD()
@@ -248,50 +251,95 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
     cb.ForEachProc(zero_negative)
     cb.ForEachSyst(zero_negative_syst)
 
+    # auto rebinning
     if auto_rebin:
-        # Merge bins from the right until each has > 1 background event; always
-        # keep the boundaries of unrolled categories (multiples of 1 - first edge).
-        # (The C++ also had a "merge to the right" branch whose condition was always false.)
+        THRESHOLD = 1.0  # minimum number of background events per bin
+        TOLERANCE = 1e-4  # numerical tolerance for the modulo operation
+        # Same algorithm as the C++ (MorphingTauID2017.cpp), including its quirks.
+        #
+        # It was written for "unrolled" NN-score histograms: several slices of a
+        # score axis [offset, 1.0] placed next to each other, e.g. for offset 0.2:
+        #
+        #     slice 0      slice 1      slice 2
+        #   |-----------|------------|-----------|
+        #  0.2         1.0          1.8         2.6     slice width = 1.0 - offset
+        #
+        # Bins are merged from right to left until each has > THRESHOLD background
+        # events, but never across a slice border (offset + k * width).
+        #
+        # For a plain 1D histogram starting above 1 (e.g. m_vis 20...200 GeV) the
+        # "width" 1 - offset is negative (-19).  The only border that usually
+        # matches is then the first edge (20), so in practice the algorithm becomes
+        # "merge from the right until each bin has > 1 event".
         for b in cb.bin_set():
             shape = cb.cp().bin([b]).backgrounds().GetShape()
             n = shape.GetNbinsX()
-            offset = shape.GetBinLowEdge(1)
-            edges, content = [shape.GetBinLowEdge(n + 1)], 0.0
-            for i in range(n, 0, -1):
-                low = shape.GetBinLowEdge(i)
+            offset = shape.GetBinLowEdge(1)  # lower edge of the first bin (e.g. 0.2 for NN scores, 20 for m_vis)
+            width = 1.0 - offset  # assumed width of one unrolled slice
+
+            def is_border(x, offset=offset, width=width):
+                # x lies on offset + k * width.  fmod (not %) to match C++.
+                # width == 0 (offset = 1): C++ fmod gives NaN, so nothing is a border.
+                return width != 0 and abs(fmod(x - offset, width)) < TOLERANCE
+
+            edges = [shape.GetBinLowEdge(n + 1)]  # start with the upper edge of the last bin
+            content = 0.0  # background yield collected since the last kept edge
+            for i in range(n, 0, -1):  # right to left
+                low_edge = shape.GetBinLowEdge(i)
                 content += shape.GetBinContent(i)
-                if abs((low - offset) % (1.0 - offset)) < 1e-4 or content > 1.0:
-                    edges.insert(0, low)
+                if is_border(low_edge):
+                    # A border always becomes an edge.  If the bin that ends here is
+                    # still too small, merge it into its right neighbour instead, by
+                    # removing the edge between them -- unless that edge is a border too.
+                    #
+                    #   before:  border |0.8 events| e |2.5 events| ...
+                    #   after:   border |   3.3 events   | ...      (edge e removed)
+                    #
+                    # The C++ condition, !(A || B) with B = |fmod(..)| - width < tol,
+                    # has a misplaced parenthesis: B is always true for width > 0 and
+                    # always false for width < 0.  So this merge only happens for
+                    # width < 0, i.e. histograms that start above 1 (like m_vis).
+                    # len(edges) > 1: never remove the upper edge of the histogram
+                    # (the C++ would do that if the whole histogram has <= 1 event).
+                    if content <= THRESHOLD and width < 0 and not is_border(edges[0]) and len(edges) > 1:
+                        edges.pop(0)
+                    edges.insert(0, low_edge)
+                    content = 0.0
+                elif content > THRESHOLD:  # enough events collected: close this bin
+                    edges.insert(0, low_edge)
                     content = 0.0
             cb.cp().bin([b]).VariableRebin(edges)
-        # Blind bins that are still below 1 background event.
+        # Blind bins that are still below THRESHOLD background events: remove their
+        # content from all processes, data and shape systematics.
+        #
+        # NOTE: deliberately different from the C++ (MorphingTauID2017.cpp), which
+        # zeroes the bin in ClonedShape() and calls set_shape(h, false).  CH stores
+        # shapes at unit area and set_shape(h, false) keeps the old rate, so the
+        # shape is renormalised and the blinded events are pushed into the other
+        # bins instead of being removed, with a different factor per process:
+        #
+        #   before          bin: [0.2 | 5    | 10   | 5   ]  rate 20.2
+        #   C++ blinding         [0   | 5.05 | 10.1 | 5.05]  rate 20.2  (+1 %)
+        #   ZeroBins             [0   | 5    | 10   | 5   ]  rate 20.0
+        #
+        # That distorts the shapes (also of the signal, which the threshold does not
+        # look at) and can bias the fitted SF and ES.  ch::CombineHarvester::ZeroBins
+        # does it correctly: it zeroes the bin in the scaled histograms, sets the new
+        # rates, and recalculates value_u/value_d of the shape systematics from the
+        # blinded nominal.  It blinds every bin lying fully inside [min, max].
+        # So with auto_rebin the cards differ from the C++ ones.
         for b in cb.bin_set():
             shape = cb.cp().bin([b]).backgrounds().GetShape()
-            for i in [i for i in range(1, shape.GetNbinsX() + 1) if shape.GetBinContent(i) < 1.0]:
-                print("[INFO] Blind bin {} in {}".format(i, b))
-
-                def blind(obj, i=i):
-                    h = obj.ClonedShape()
-                    h.SetBinContent(i, 0.0)
-                    h.SetBinError(i, 0.0)
-                    obj.set_shape(h, False)
-
-                def blind_syst(s, i=i):
-                    if "shape" in s.type():
-                        h_u, h_d = s.ClonedShapeU(), s.ClonedShapeD()
-                        for h in (h_u, h_d):
-                            h.SetBinContent(i, 0.0)
-                            h.SetBinError(i, 0.0)
-                        set_syst_shapes(s, h_u, h_d)
-
-                cb.cp().bin([b]).ForEachProc(blind)
-                cb.cp().bin([b]).ForEachObs(blind)
-                cb.cp().bin([b]).ForEachSyst(blind_syst)
+            for i in range(1, shape.GetNbinsX() + 1):
+                if shape.GetBinContent(i) < THRESHOLD:
+                    print(f"[INFO] Blind bin {i} in {b}")
+                    cb.cp().bin([b]).ZeroBins(shape.GetBinLowEdge(i), shape.GetBinLowEdge(i + 1))
 
     if manual_rebin_for_yields:  # one bin: only the yields remain
         for b in cb.bin_set():
             cb.cp().bin([b]).VariableRebin([0.0, 1.0])
 
+    # Merge bins and set bin-by-bin uncertainties if no autoMCStats is used.
     if classic_bbb:
         bbb = ch.BinByBinFactory()
         bbb.SetAddThreshold(0.0).SetMergeThreshold(0.5).SetFixNorm(False)
@@ -308,7 +356,7 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
         for proc in procs:
             h = proc.shape()
             if h.GetSumw2N() == 0:
-                print("[WARNING] {} has no bin errors, no binomial bbb".format(proc.process()))
+                print(f"[WARNING] {proc.process()} has no bin errors, no binomial bbb")
                 continue
             for j in range(1, h.GetNbinsX() + 1):
                 err = sqrt(h.GetBinContent(j) * p_filter / n_trials * (1.0 - p_filter))
@@ -323,30 +371,62 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
                 s.set_all_attributes(proc.all_attributes())
                 s.set_type("shape")
                 s.set_asymm(True)
-                s.set_name("CMS_htt_{}_{}_{}_{}_binomial_bin_{}".format(
-                    proc.channel(), proc.bin(), era_tag, proc.process(), j))
+                s.set_name(f"CMS_htt_{proc.channel()}_{proc.bin()}_{era_tag}_{proc.process()}_binomial_bin_{j}")
                 s.set_shapes(h_u, h_d, h)  # also sets value_u/d = integral ratios
                 cb.CreateParameterIfEmpty(s.name())
                 cb.InsertSystematic(s)
 
+    # this function modifies every entry to have a standardised bin name of the form: {analysis}_{channel}_{bin_id}_{era}
     ch.SetStandardBinNames(cb, "$ANALYSIS_$CHANNEL_$BINID_$ERA")  # e.g. htt_mt_7_Run2018
-    cb.SetAutoMCStats(cb, 10.0)
+    cb.SetAutoMCStats(cb, 10.0) # activate combine's autoMCStats (https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/latest/part2/bin-wise-stats/) with a threshold of 10 events per bin
 
     # --- 5. ES morphing ------------------------------------------------------
-    # CMSHistFuncFactory interpolates between the ES templates: pdf <bin>_<proc>_morph(ES_<cat>).
+    # Goal: turn the signal templates, which exist only for a grid of ES shifts
+    # (the CH "masses" -8.0, -7.9, ..., 8.0 %, without 0.0), into ONE pdf that
+    # depends continuously on the fit parameter ES_<cat>, so combine can fit the ES.
+    #
+    #   templates:   ES = -0.2      ES = -0.1      ES = +0.1          (one TH1 each)
+    #                 _/\_           _/\_            _/\_
+    #   morphed pdf at ES = 0.03:  shape AND yield interpolated between the two
+    #                              neighbouring templates (-0.1 and +0.1)
+    #
+    # ch::CMSHistFuncFactory (CombinePdfs/src/CMSHistFuncFactory.cc) does, per
+    # (bin, process):
+    #   * nominal: builds a CMSHistFunc "<bin>_<proc>_morph" from the templates in
+    #     EVENTS (ClonedScaledShape), so the yield vs ES is carried by the
+    #     histograms themselves.  "Horizontal" morphing in ES_<cat> uses
+    #     HorizontalType::Integral: it interpolates between the cumulative
+    #     distributions of the two neighbouring ES templates, so a peak moves
+    #     smoothly instead of two peaks being faded into each other.
+    #     Bin errors of the signal templates are set to 0 -> no autoMCStats for it.
+    #   * shape systematics: "vertical" morphs.  Their up/down templates (per ES
+    #     point, rescaled to the nominal integral = pure shape effect) are
+    #     interpolated in the nuisance parameter as usual; their normalisation
+    #     effect (value_u/value_d = kappa) is interpolated LINEARLY in ES with a
+    #     RooSpline1D and applied with AsymPow in "<bin>_<proc>_morph_norm".
+    #   * processes with only one "mass" (all backgrounds) get the same CMSHistFunc,
+    #     just without horizontal morphing.
+    #   * afterwards the CH entries are reduced to one per process with mass "*",
+    #     rate 1 and no TH1: the yield now comes from the workspace objects
+    #     (text2workspace picks up "<pdf>_norm" automatically), the data becomes
+    #     the RooDataHist "<bin>_data_obs".
+    # The tau ID SF is then the signal strength r (the signal normalisation) and
+    # the ES is ES_<cat>; both are fitted together.
+    #
+    # The start value is tes_precision rather than 0.0 because 0.0 is not a grid point.
     es_var = ROOT.RooRealVar("ES_" + category, "ES_" + category, tes_precision, es_min, es_max)
     ws = ROOT.RooWorkspace("htt", "htt")
     getattr(ws, "import")(es_var)  # "import" is a python keyword
     morph_vars = cppyy.gbl.std.map["std::string", "RooAbsReal*"]()
-    morph_vars[signal] = es_var
+    morph_vars[signal] = es_var  # only the signal is morphed in ES
     norm_postfix = cppyy.gbl.std.map["std::string", "std::string"]()
-    norm_postfix[signal] = "norm"
+    norm_postfix[signal] = "norm"  # -> "<bin>_<signal>_morph_norm", the name text2workspace expects
     factory = cppyy.gbl.ch.CMSHistFuncFactory()
     factory.SetHorizontalMorphingVariable(morph_vars)
-    factory.Run(cb, ws, norm_postfix)
+    factory.Run(cb, ws, norm_postfix)  # builds the pdfs/norms in ws and strips the TH1s from cb
     cb.AddWorkspace(ws)
-    cb.ExtractPdfs(cb, "htt", "$BIN_$PROCESS_morph", "")
-    cb.ExtractData("htt", "$BIN_data_obs")
+    cb.ExtractPdfs(cb, "htt", "$BIN_$PROCESS_morph", "")  # attach the workspace pdfs to the CH processes
+    cb.ExtractData("htt", "$BIN_data_obs")  # and the RooDataHist to the observations
     ws._es_var = es_var  # keep the python object alive
 
     # --- 6. datacards ---------------------------------------------------------
@@ -354,8 +434,9 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
     if write:
         out = os.path.join(output_dir, output_folder)
         writer = ch.CardWriter(os.path.join(out, "$TAG", "$BIN.txt"),
-                               os.path.join(out, "$TAG", "htt_input_{}{}.root".format(era_tag, category)))
-        writer.SetWildcardMasses(ROOT.std.vector("std::string")())  # ES shifts are not separate cards
+                               os.path.join(out, "$TAG", f"htt_input_{era_tag}{category}.root"))
+        # We're not using mass as an identifier - which we need to tell the CardWriter otherwise it will see "*" as the mass value for every object and skip it
+        writer.SetWildcardMasses([])  # ES shifts are not separate cards
         if verbose:
             writer.SetVerbosity(3)
         writer.WriteCards("cmb", cb)
