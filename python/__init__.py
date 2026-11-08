@@ -26,14 +26,11 @@ from CombineHarvester.CombineTools import ch
 
 cppyy.load_reflection_info("libCombineHarvesterCombinePdfs")  # for CMSHistFuncFactory
 
-ERA_TAGS = {"2016preVFP": "Run2016preVFP", "2016postVFP": "Run2016postVFP",
-            "2017": "Run2017", "2018": "Run2018", "2024": "Run2024"}
+ERA_TAGS = {"2016preVFP": "Run2016preVFP", "2016postVFP": "Run2016postVFP", "2017": "Run2017", "2018": "Run2018", "2024": "Run2024"}
 
 # Category name -> bin id (ids as in the C++ code).  The C++ also listed "all",
 # "Pt*" and "Inclusive", but they crashed there, so they are left out.
-CATEGORIES = {name: 7 + i for i, name in enumerate(
-    [dm + pt for pt in ["", "_PT20_40", "_PT40_200"]
-     for dm in ["DM0", "DM1", "DM1011", "DM10", "DM11"]])}
+CATEGORIES = {name: 7 + i for i, name in enumerate([dm + pt for pt in ["", "_PT20_40", "_PT40_200"] for dm in ["DM0", "DM1", "DM1011", "DM10", "DM11"]])}
 
 # Embedded processes that get the muon / embedding uncertainties, copied 1:1
 # from the C++.  NOTE: "EMB_DM10" and "EMB_DM11" are missing there, so these
@@ -44,14 +41,37 @@ EMB_PROCESSES = [
     "EMB_DM0_PT20_40", "EMB_DM1_PT20_40", "EMB_DM1011_PT20_40", "EMB_DM10_PT20_40", "EMB_DM11_PT20_40",
     "EMB_DM0_PT40_200", "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200",
 ]
-LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0161} # Run3 source: https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3#2024
+# Run3 source: https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3#2024
+LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0161}
 JES_SOURCES = [
-    "Total", "SinglePionECAL", "SinglePionHCAL", "AbsoluteMPFBias", "AbsoluteScale",
-    "Fragmentation", "PileUpDataMC", "RelativeFSR", "PileupPtRef", "AbsoluteStat",
-    "TimePtEta", "RelativeStatFSR", "FlavorQCD", "PileupPtEC1", "PileUpPtBB",
-    "RelativePtBB", "RelativeJEREC1", "RelativePtEC1", "RelativeStatEC", "RelativePtHF",
-    "PileUpPtHF", "RelativeJERHF", "RelativeStatHF", "PileUpPtEC2", "RelativeJEREC2",
-    "RelativePtEC2", "RelativeBal", "RelativeSample",
+    "Total",
+    "SinglePionECAL",
+    "SinglePionHCAL",
+    "AbsoluteMPFBias",
+    "AbsoluteScale",
+    "Fragmentation",
+    "PileUpDataMC",
+    "RelativeFSR",
+    "PileupPtRef",
+    "AbsoluteStat",
+    "TimePtEta",
+    "RelativeStatFSR",
+    "FlavorQCD",
+    "PileupPtEC1",
+    "PileUpPtBB",
+    "RelativePtBB",
+    "RelativeJEREC1",
+    "RelativePtEC1",
+    "RelativeStatEC",
+    "RelativePtHF",
+    "PileUpPtHF",
+    "RelativeJERHF",
+    "RelativeStatHF",
+    "PileUpPtEC2",
+    "RelativeJEREC2",
+    "RelativePtEC2",
+    "RelativeBal",
+    "RelativeSample",
 ]
 BASE_PATH_DEFAULT = os.path.join(os.environ.get("CMSSW_BASE", "."), "src/CombineHarvester/TauIDSFMeasurement/shapes")
 
@@ -65,19 +85,20 @@ def es_shifts(es_min, es_max, tes_precision):
 def add_systematics(cb, era_tag, embedding):
     """Add the uncertainty model (v15).  Shape nuisances read <proc>_<name>Up/Down
     from the input file; $ERA/$CHANNEL make a nuisance uncorrelated per era/channel."""
+
     def add(channels, procs, name, kind, value):
         cb.cp().channel(channels).process(procs).AddSyst(cb, name, kind, ch.SystMap()(float(value)))
 
     # set a flag if this is a Run3 era
-    run3 = era_tag in ["Run2024"]  
-    
+    run3 = era_tag in ["Run2024"]
+
     if embedding:  # genuine taus come from the embedded sample, not from MC
         mc = ["TTL", "TTJ", "W", "ZJ", "ZL", "VVL", "VVJ", "STL", "STJ"]
     else:
         mc = ["ZTT", "TTT", "TTL", "TTJ", "W", "ZJ", "ZL", "VVT", "VVL", "VVJ", "STT", "STL", "STJ"]
 
     add(["mt", "mm"], mc, "lumi_13TeV_$ERA", "lnN", LUMI[era_tag])
-    
+
     # Run2 Prefiring Unerctainty: https://twiki.cern.ch/twiki/bin/viewauth/CMS/L1PrefiringWeightRecipe
     if not run3 and era_tag != "Run2018":
         add(["mt"], mc, "CMS_prefiring", "shape", 1.0)
@@ -105,14 +126,13 @@ def add_systematics(cb, era_tag, embedding):
 
     for source in JES_SOURCES:
         add(["mt"], mc, "CMS_scale_j_" + source, "shape", 1.0)
-    
+
     # HEM issue in 2018
     if era_tag == "Run2018":
         add(["mt"], mc, "CMS_scale_j_HEMIssue_$ERA", "shape", 1.0)
 
     # MET energy scale and recoil
-    add(["mt"], ["ZTT", "TT", "TTT", "TTL", "TTJ", "W", "ZJ", "ZL", "VV", "VVT", "VVL", "VVJ",
-                 "STT", "STL", "STJ"], "CMS_scale_met_unclustered_energy_$ERA", "shape", 1.0)
+    add(["mt"], ["ZTT", "TT", "TTT", "TTL", "TTJ", "W", "ZJ", "ZL", "VV", "VVT", "VVL", "VVJ", "STT", "STL", "STJ"], "CMS_scale_met_unclustered_energy_$ERA", "shape", 1.0)
     add(["mt"], ["ZTT", "ZL", "ZJ", "W"], "CMS_scale_met_$ERA", "shape", 1.0)
     add(["mt"], ["ZTT", "ZL", "ZJ", "W"], "CMS_res_met_$ERA", "shape", 1.0)
 
@@ -130,7 +150,7 @@ def add_systematics(cb, era_tag, embedding):
 
     # TT shape reweighting
     add(["mt"], ["TTT", "TTL", "TTJ", "TT"], "CMS_htt_ttbarShape", "shape", 1.0)
-    
+
     # Muon -> tau_h fakes: ES of the fake and fake-rate SFs in 5 eta (wheel) regions.
     add(["mt"], ["ZL"], "CMS_scale_fake_m_$ERA", "shape", 1.0)
     for i in range(1, 6):
@@ -141,20 +161,36 @@ def add_systematics(cb, era_tag, embedding):
     ## Embedding-specific uncertainties:
     # Embedding selection trigger efficiency
     if run3:
-        add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "shape", 1.0) # For Run3 those come from the SF measurement itself
+        add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "shape", 1.0)  # For Run3 those come from the SF measurement itself
     else:
         add(["mt", "mm"], EMB_PROCESSES, "CMS_eff_m_emb_selection_trigger_$ERA", "lnN", 1.04)
     # estimate the contamination of ttbar events in the embedded sample. 10% shape uncertainty of assumed ttbar->tautau event shape  // this should be included to input ntuples
     add(["mt"], EMB_PROCESSES, "CMS_emb_ttbar_contamination_$ERA", "shape", 1.0)
 
 
-def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_precision=0.1,
-                      base_path=BASE_PATH_DEFAULT,
-                      input_folder_mt="Vienna/", input_folder_mm="Vienna/", postfix="-ML",
-                      output_folder="sm_run2", output_dir="output",
-                      jetfakes=True, embedding=False, use_control_region=True, real_data=False,
-                      auto_rebin=False, manual_rebin_for_yields=False,
-                      classic_bbb=False, binomial_bbb=False, write=True, verbose=False):
+def produce_datacards(
+    era="2018",
+    category="DM0",
+    es_min=-8.0,
+    es_max=8.0,
+    tes_precision=0.1,
+    base_path=BASE_PATH_DEFAULT,
+    input_folder_mt="Vienna/",
+    input_folder_mm="Vienna/",
+    postfix="-ML",
+    output_folder="sm_run2",
+    output_dir="output",
+    jetfakes=True,
+    embedding=False,
+    use_control_region=True,
+    real_data=False,
+    auto_rebin=False,
+    manual_rebin_for_yields=False,
+    classic_bbb=False,
+    binomial_bbb=False,
+    write=True,
+    verbose=False,
+):
     """Build the model, read the templates, morph the signal, write the cards.
 
     Returns (cb, ws): the CombineHarvester and the morphing RooWorkspace
@@ -187,11 +223,9 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
     # Add the observations (data) and the processes (signal and backgrounds MC). The signal is the embedded sample, which has one template per ES shift.
     for chn in channels:
         cb.AddObservations(mass=["*"], analysis=["htt"], era=[era_tag], channel=[chn], bin=cats[chn])
-        cb.AddProcesses(mass=["*"], analysis=["htt"], era=[era_tag], channel=[chn],
-                        procs=bkgs[chn], bin=cats[chn], signal=False)
+        cb.AddProcesses(mass=["*"], analysis=["htt"], era=[era_tag], channel=[chn], procs=bkgs[chn], bin=cats[chn], signal=False)
     # The signal's "mass" is the ES shift: one template per grid point.
-    cb.AddProcesses(mass=es_shifts(es_min, es_max, tes_precision), analysis=["htt"], era=[era_tag],
-                    channel=["mt"], procs=[signal], bin=cats["mt"], signal=True)
+    cb.AddProcesses(mass=es_shifts(es_min, es_max, tes_precision), analysis=["htt"], era=[era_tag], channel=["mt"], procs=[signal], bin=cats["mt"], signal=True)
 
     # --- 2. systematics -------------------------------------------------------
     add_systematics(cb, era_tag, embedding)
@@ -210,9 +244,9 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
     cb.ForEachProc(lambda p: empty.add((p.bin(), p.process(), p.mass())) if not p.rate() > 0 else None)
     print(f"[INFO] Dropping {len(empty)} empty processes/templates: {empty}")
     cb.FilterProcs(lambda p: (p.bin(), p.process(), p.mass()) in empty)
-    cb.FilterSysts(lambda s: (s.bin(), s.process(), s.mass()) in empty
-                   or (s.type() == "shape" and (s.shape_u().Integral() == 0 or s.shape_d().Integral() == 0))) # Delete systematics with 0 yield since these result in a bogus norm error in combine
-
+    
+    # Delete systematics with 0 yield since these result in a bogus norm error in combine
+    cb.FilterSysts(lambda s: (s.bin(), s.process(), s.mass()) in empty or (s.type() == "shape" and (s.shape_u().Integral() == 0 or s.shape_d().Integral() == 0)))
     # Replacing observation with the sum of the backgrounds (Asimov data) useful to be able to check this, so don't do the replacement for these
     if not real_data:
         # Asimov data = sum of all templates. This includes ALL
@@ -233,7 +267,7 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
 
     def zero_negative(p):  # negative bins from negative MC weights
         """Set negative bins in the shape to zero."""
-        
+
         if cppyy.gbl.ch.HasNegativeBins(p.shape()):
             h = p.ClonedShape()
             cppyy.gbl.ch.ZeroNegativeBins(h.get())
@@ -241,8 +275,7 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
 
     def zero_negative_syst(s):
         """Set negative bins in the up and down shapes of a the systematic uncertainties to zero."""
-        if "shape" in s.type() and (cppyy.gbl.ch.HasNegativeBins(s.shape_u())
-                                    or cppyy.gbl.ch.HasNegativeBins(s.shape_d())):
+        if "shape" in s.type() and (cppyy.gbl.ch.HasNegativeBins(s.shape_u()) or cppyy.gbl.ch.HasNegativeBins(s.shape_d())):
             h_u, h_d = s.ClonedShapeU(), s.ClonedShapeD()
             cppyy.gbl.ch.ZeroNegativeBins(h_u.get())
             cppyy.gbl.ch.ZeroNegativeBins(h_d.get())
@@ -378,7 +411,7 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
 
     # this function modifies every entry to have a standardised bin name of the form: {analysis}_{channel}_{bin_id}_{era}
     ch.SetStandardBinNames(cb, "$ANALYSIS_$CHANNEL_$BINID_$ERA")  # e.g. htt_mt_7_Run2018
-    cb.SetAutoMCStats(cb, 10.0) # activate combine's autoMCStats (https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/latest/part2/bin-wise-stats/) with a threshold of 10 events per bin
+    cb.SetAutoMCStats(cb, 10.0)  # activate combine's autoMCStats (https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/latest/part2/bin-wise-stats/) with a threshold of 10 events per bin
 
     # --- 5. ES morphing ------------------------------------------------------
     # Goal: turn the signal templates, which exist only for a grid of ES shifts
@@ -433,8 +466,7 @@ def produce_datacards(era="2018", category="DM0", es_min=-8.0, es_max=8.0, tes_p
     # <output_dir>/<output_folder>/{cmb, mt, htt_mt_<cat>}/$BIN.txt + one ROOT file each.
     if write:
         out = os.path.join(output_dir, output_folder)
-        writer = ch.CardWriter(os.path.join(out, "$TAG", "$BIN.txt"),
-                               os.path.join(out, "$TAG", f"htt_input_{era_tag}{category}.root"))
+        writer = ch.CardWriter(os.path.join(out, "$TAG", "$BIN.txt"), os.path.join(out, "$TAG", f"htt_input_{era_tag}{category}.root"))
         # We're not using mass as an identifier - which we need to tell the CardWriter otherwise it will see "*" as the mass value for every object and skip it
         writer.SetWildcardMasses([])  # ES shifts are not separate cards
         if verbose:

@@ -27,7 +27,6 @@ parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.R
 for name, param in inspect.signature(produce_datacards).parameters.items():
     flags = ["--" + name] + (["--categories"] if name == "category" else [])  # C++ option name
     kind = to_bool if isinstance(param.default, bool) else type(param.default)
-    parser.add_argument(*flags, dest=name, type=kind, default=param.default,
-                        help="default: %(default)s")
+    parser.add_argument(*flags, dest=name, type=kind, default=param.default, help="default: %(default)s")
 
 produce_datacards(**vars(parser.parse_args()))
