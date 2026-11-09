@@ -42,7 +42,7 @@ EMB_PROCESSES = [
     "EMB_DM0_PT40_200", "EMB_DM1_PT40_200", "EMB_DM1011_PT40_200", "EMB_DM10_PT40_200", "EMB_DM11_PT40_200",
 ]
 # Run3 source: https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3#2024
-LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 0.0161}
+LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 1.0161}
 JES_SOURCES = [
     "Total",
     "SinglePionECAL",
@@ -137,10 +137,16 @@ def add_systematics(cb, era_tag, embedding):
     add(["mt"], ["ZTT", "ZL", "ZJ", "W"], "CMS_res_met_$ERA", "shape", 1.0)
 
     # Cross sections (Background normalisations)
-    add(["mt", "mm"], ["VVT", "VVJ", "VVL", "VV"], "CMS_htt_vvXsec", "lnN", 1.06)       # VV
-    add(["mt", "mm"], ["TTT", "TTL", "TTJ", "TT"], "CMS_htt_tjXsec", "lnN", 1.055)      # TT
-    add(["mt", "mm"], ["STT", "STL", "STJ", "ST"], "CMS_htt_stXsec", "lnN", 1.055)      # ST
-    add(["mt", "mm"], ["W"], "CMS_htt_wjXsec", "lnN", 1.05)                             # W
+    if run3:
+        add(["mt", "mm"], ["VVT", "VVJ", "VVL", "VV"], "CMS_htt_vvXsec", "lnN", 1.06)       # VV
+        add(["mt", "mm"], ["TTT", "TTL", "TTJ", "TT"], "CMS_htt_tjXsec", "lnN", 1.052)      # TT https://twiki.cern.ch/twiki/bin/view/LHCPhysics/TtbarNNLO
+        add(["mt", "mm"], ["STT", "STL", "STJ", "ST"], "CMS_htt_stXsec", "lnN", 1.024)      # ST https://twiki.cern.ch/twiki/bin/view/LHCPhysics/SingleTopNNLORef
+        add(["mt", "mm"], ["W"], "CMS_htt_wjXsec", "lnN", 1.022)                            # W https://twiki.cern.ch/twiki/bin/viewauth/CMS/MATRIXCrossSectionsat13p6TeV σ_{NNLO_QCDxNLO_EW}(pp->e^-\bar{v}_e + pp->e^+ v_e)
+    else:
+        add(["mt", "mm"], ["VVT", "VVJ", "VVL", "VV"], "CMS_htt_vvXsec", "lnN", 1.06)       # VV
+        add(["mt", "mm"], ["TTT", "TTL", "TTJ", "TT"], "CMS_htt_tjXsec", "lnN", 1.055)      # TT https://twiki.cern.ch/twiki/bin/view/LHCPhysics/TtbarNNLO
+        add(["mt", "mm"], ["STT", "STL", "STJ", "ST"], "CMS_htt_stXsec", "lnN", 1.055)      # ST probably copied from TT
+        add(["mt", "mm"], ["W"], "CMS_htt_wjXsec", "lnN", 1.05)                             # W
     if embedding:
         add(["mt", "mm"], ["ZL", "ZJ"], "CMS_htt_zjXsec", "lnN", 1.04)                  # Z (emb) 4% (estimated)
     else:  # free Drell-Yan normalisation, constrained by the mm region
