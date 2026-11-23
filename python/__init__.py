@@ -43,8 +43,8 @@ EMB_PROCESSES = [
 ]
 # Run3 source: https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3#2024
 LUMI = {"Run2016preVFP": 1.012, "Run2016postVFP": 1.012, "Run2017": 1.0082, "Run2018": 1.0084, "Run2024": 1.0161}
+# CMS_scale_j_Total is not added: it is the quadratic sum of the single sources below.
 JES_SOURCES = [
-    "Total",
     "SinglePionECAL",
     "SinglePionHCAL",
     "AbsoluteMPFBias",
@@ -77,9 +77,9 @@ BASE_PATH_DEFAULT = os.path.join(os.environ.get("CMSSW_BASE", "."), "src/Combine
 
 
 def es_shifts(es_min, es_max, tes_precision):
-    """ES grid labels '-8.0' ... '8.0' without '0.0' (integer steps: no float drift)."""
+    """ES grid labels '-8.0' ... '8.0', including the nominal '0.0' (integer steps: no float drift)."""
     n_min, n_max = round(es_min / tes_precision), round(es_max / tes_precision)
-    return [f"{n * tes_precision:.1f}" for n in range(n_min, n_max + 1) if n != 0]
+    return [f"{n * tes_precision:.1f}" for n in range(n_min, n_max + 1)]
 
 
 def add_systematics(cb, era_tag, embedding):
@@ -103,6 +103,9 @@ def add_systematics(cb, era_tag, embedding):
     if not run3 and era_tag != "Run2018":
         add(["mt"], mc, "CMS_prefiring", "shape", 1.0)
 
+    # Pileup reweighting, correlated between eras (no $ERA in the name).
+    add(["mt"], mc, "CMS_PileUp", "shape", 1.0)
+
     # Muon trigger/ID/iso: separate for MC and embedding, 4% in mm (two muons).
     add(["mt"], mc, "CMS_eff_m_trigger_$ERA", "shape", 1.0)
     # For Run3 the muon trigger ID/ISO/trigger uncertainties are derived from the SF measurement itself and is not a fiexed 4% uncertainty.
@@ -120,9 +123,11 @@ def add_systematics(cb, era_tag, embedding):
             add(["mm"], mc, "CMS_eff_m_" + name, "lnN", 1.04)
 
     # Tau ID and ES of simulation. The embedded signal's ID and ES are what we measure, so they get no nuisance here.
+    # The shifts in the ntuples are split in decay mode and tau pt (ES_ID_SCHEME "dm_pt_binned" in CROWN).
     for dm in ["dm0", "dm1", "dm10", "dm11"]:
-        add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_eff_t_{dm}_$ERA", "shape", 1.0)
-        add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_scale_t_{dm}_$ERA", "shape", 1.0)
+        for pt in ["20to40", "40toInf"]:
+            add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_eff_t_{dm}_{pt}_$ERA", "shape", 1.0)
+            add(["mt"], ["ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"], f"CMS_scale_t_{dm}_{pt}_$ERA", "shape", 1.0)
 
     for source in JES_SOURCES:
         add(["mt"], mc, "CMS_scale_j_" + source, "shape", 1.0)
@@ -162,7 +167,7 @@ def add_systematics(cb, era_tag, embedding):
     for i in range(1, 6):
         add(["mt"], ["ZL"], f"CMS_fake_m_WH{i}_$ERA", "shape", 1.0)
     # Jet -> tau_h fakes:
-    add(["mt"], ["W", "TTJ", "ZJ", "VVJ"], "CMS_fake_j_$ERA", "shape", 1.0)
+    add(["mt"], ["W", "TTJ", "ZJ", "VVJ", "STJ"], "CMS_fake_j_$ERA", "shape", 1.0)
 
     ## Embedding-specific uncertainties:
     # Embedding selection trigger efficiency
@@ -421,7 +426,7 @@ def produce_datacards(
 
     # --- 5. ES morphing ------------------------------------------------------
     # Goal: turn the signal templates, which exist only for a grid of ES shifts
-    # (the CH "masses" -8.0, -7.9, ..., 8.0 %, without 0.0), into ONE pdf that
+    # (the CH "masses" -8.0, -7.9, ..., 8.0 %, including 0.0), into ONE pdf that
     # depends continuously on the fit parameter ES_<cat>, so combine can fit the ES.
     #
     #   templates:   ES = -0.2      ES = -0.1      ES = +0.1          (one TH1 each)
@@ -452,7 +457,7 @@ def produce_datacards(
     # The tau ID SF is then the signal strength r (the signal normalisation) and
     # the ES is ES_<cat>; both are fitted together.
     #
-    # The start value is tes_precision rather than 0.0 because 0.0 is not a grid point.
+    # The start value is tes_precision.
     es_var = ROOT.RooRealVar("ES_" + category, "ES_" + category, tes_precision, es_min, es_max)
     ws = ROOT.RooWorkspace("htt", "htt")
     getattr(ws, "import")(es_var)  # "import" is a python keyword
@@ -482,7 +487,8 @@ def produce_datacards(
         writer.WriteCards("htt_mt_" + category, cb.cp().channel(channels).bin_id([bin_id, 100]))
 
         # cb.PrintAll() writes to C++ std::cout: redirect it into a log file.
-        logfile = ROOT.std.ofstream(os.path.join(out, "cb_PrintAll.log"))
+        # One file per era and category, since several categories may share one output folder.
+        logfile = ROOT.std.ofstream(os.path.join(out, f"cb_PrintAll_{era_tag}_{category}.log"))
         original = ROOT.std.cout.rdbuf()
         ROOT.std.cout.rdbuf(logfile.rdbuf())
         try:
