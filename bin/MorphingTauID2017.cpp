@@ -16,6 +16,7 @@
 #include "TF1.h"
 #include "TH2.h"
 #include "boost/algorithm/string/predicate.hpp"
+#include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
 #include "boost/program_options.hpp"
 #include "boost/regex.hpp"
@@ -147,8 +148,11 @@ int main(int argc, char **argv) {
 
 
   vector<string> es_shifts;
-  for (float i = es_min; i <= es_max; i += tes_precision) {
-    if (i > -0.005 && i < 0.005) continue; // skip 0.0
+  // integer steps, adding up the float precision drifted and dropped es_max; the nominal 0.0 is included
+  long n_es_steps = std::lround((es_max - es_min) / tes_precision);
+  for (long step = 0; step <= n_es_steps; ++step) {
+    double i = es_min + step * tes_precision;
+    if (std::fabs(i) < 0.005) i = 0.0; // avoid "-0.0"
     // there seems to be no easier way for C++11 to do this conversion to strings
     std::ostringstream stream;
     stream << std::fixed << std::setprecision(1) << i;
@@ -767,8 +771,11 @@ int main(int argc, char **argv) {
 
   // if (verbose)
   // Redirect cb.PrintAll() output to a log file with a specified location.
-  // You can modify the logfile_path variable to change the location.
-  std::string logfile_path = "/work/jvoss/ntuples/smhtt_ul_SFs_v15/log/cb_PrintAll.log";
+  // The log is written next to the datacards (output/<output_folder>/), one file per era and category,
+  // as the script calls this binary once per category with the same output folder.
+  std::string logfile_dir = output_prefix + output_folder;
+  boost::filesystem::create_directories(logfile_dir);
+  std::string logfile_path = logfile_dir + "/cb_PrintAll_" + era_tag + "_" + categories + ".log";
   std::ofstream logfile(logfile_path);
   if (logfile.is_open()) {
     std::streambuf* orig_buf = std::cout.rdbuf();

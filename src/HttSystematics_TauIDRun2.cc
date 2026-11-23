@@ -97,6 +97,16 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
 
 
   // ##########################################################################
+  // Uncertainty: Pileup reweighting
+  // Notes:
+  // - correlated between eras (no era in the shape name)
+  // ##########################################################################
+  cb.cp()
+      .channel({"mt"})
+      .process(mc_processes)
+      .AddSyst(cb, "CMS_PileUp", "shape", SystMap<>::init(1.00));
+
+  // ##########################################################################
   // Uncertainty: Trigger efficiency
   // References:
   // Notes:
@@ -191,6 +201,8 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   // TauID first
   std::string tauIDptbins[5] = {"30-35", "35-40", "40-500", "500-1000", "1000-Inf"};
   std::string tauIDdmbins[4] = {"dm0", "dm1", "dm10", "dm11"};
+  // the tau ID and ES shifts in the ntuples are split in decay mode and pt (ES_ID_SCHEME "dm_pt_binned" in CROWN)
+  std::string tauptbins[2] = {"20to40", "40toInf"};
 //   std::string tauIDdmptbins[12] = {"dm0", "dm1", "dm10", "dm11", "dm0_20-40", "dm1_20-40", "dm10_20-40", "dm11_20-40", "dm0_40-200", "dm1_40-200", "dm10_40-200", "dm11_40-200"};
 
   // 3% in Tau ID SF with different anti-l fake WP
@@ -202,34 +214,25 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
   // Tau ID: et and mt with 1 real tau
       
   for (auto tauIDbin : tauIDdmbins){ //first part correlated between channels for IDvsJets
-    cb.cp()
-        .channel({"mt"})
-        .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-        .AddSyst(cb, "CMS_eff_t_"+tauIDbin+"_$ERA", "shape", SystMap<>::init(1.0));
+    for (auto tauptbin : tauptbins){
+      cb.cp()
+          .channel({"mt"})
+          .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
+          .AddSyst(cb, "CMS_eff_t_"+tauIDbin+"_"+tauptbin+"_$ERA", "shape", SystMap<>::init(1.0));
+    }
   }
-  
+
   // MC uncorrelated uncertainty
   // TODO set to correlated again once embedding is available (0.71)
-  cb.cp()
-      .channel({"mt"})
-      .process({{"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"}})
-      // .process({{"ZTT", "TTT", "TTL", "VVT", "VVL", "jetFakes", "QCD"}}) // TODO: Check if this should be propagated to QCD
-      .AddSyst(cb, "CMS_scale_t_dm0_$ERA", "shape", SystMap<>::init(1.00));
-
-  cb.cp()
-      .channel({"mt"})
-      .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_dm1_$ERA", "shape", SystMap<>::init(1.00));
-
-  cb.cp()
-      .channel({"mt"})
-      .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_dm10_$ERA", "shape", SystMap<>::init(1.00));
-
-  cb.cp()
-      .channel({"mt"})
-      .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
-      .AddSyst(cb, "CMS_scale_t_dm11_$ERA", "shape", SystMap<>::init(1.00));
+  for (auto tauIDbin : tauIDdmbins){
+    for (auto tauptbin : tauptbins){
+      cb.cp()
+          .channel({"mt"})
+          .process({"ZTT", "TTT", "TTL", "VVT", "VVL", "STT", "STL"})
+          // .process({{"ZTT", "TTT", "TTL", "VVT", "VVL", "jetFakes", "QCD"}}) // TODO: Check if this should be propagated to QCD
+          .AddSyst(cb, "CMS_scale_t_"+tauIDbin+"_"+tauptbin+"_$ERA", "shape", SystMap<>::init(1.00));
+    }
+  }
 
 //   // Embedded uncorrelated uncertainty
 // // TODO check EMB ES
@@ -353,8 +356,8 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
 
 
     // New v15:
+    // CMS_scale_j_Total is not added, it is the quadratic sum of the single sources below
     std::vector<std::string> scale_j_systematics = {
-        "CMS_scale_j_Total",
         "CMS_scale_j_SinglePionECAL",
         "CMS_scale_j_SinglePionHCAL",
         "CMS_scale_j_AbsoluteMPFBias",
@@ -558,7 +561,7 @@ void AddTauIDRun2Systematics(CombineHarvester &cb, bool jetfakes, bool embedding
 
   cb.cp()
       .channel({"mt"})
-      .process({"W", "TTJ", "ZJ", "VVJ"})
+      .process({"W", "TTJ", "ZJ", "VVJ", "STJ"})
       .AddSyst(cb, "CMS_fake_j_$ERA", "shape", SystMap<>::init(1.00));
 
   // ##########################################################################
