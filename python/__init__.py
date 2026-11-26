@@ -281,15 +281,15 @@ def produce_datacards(
 
         if cppyy.gbl.ch.HasNegativeBins(p.shape()):
             h = p.ClonedShape()
-            cppyy.gbl.ch.ZeroNegativeBins(h.get())
+            cppyy.gbl.ch.ZeroNegativeBins(h)
             p.set_shape(h, False)
 
     def zero_negative_syst(s):
         """Set negative bins in the up and down shapes of a the systematic uncertainties to zero."""
         if "shape" in s.type() and (cppyy.gbl.ch.HasNegativeBins(s.shape_u()) or cppyy.gbl.ch.HasNegativeBins(s.shape_d())):
             h_u, h_d = s.ClonedShapeU(), s.ClonedShapeD()
-            cppyy.gbl.ch.ZeroNegativeBins(h_u.get())
-            cppyy.gbl.ch.ZeroNegativeBins(h_d.get())
+            cppyy.gbl.ch.ZeroNegativeBins(h_u)
+            cppyy.gbl.ch.ZeroNegativeBins(h_d)
             set_syst_shapes(s, h_u, h_d)
 
     cb.ForEachProc(zero_negative)
